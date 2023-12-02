@@ -1,0 +1,1 @@
+C:\Users\imran\Documents\buenolasthope\tentando\target\release\rust.exe: C:\Users\imran\Documents\buenolasthope\tentando\src\algorithms.rs C:\Users\imran\Documents\buenolasthope\tentando\src\main.rs C:\Users\imran\Documents\buenolasthope\tentando\src\readers.rs

@@ -1,6 +1,6 @@
+use std::io;
 use std::net::TcpStream;
 use std::time::Duration;
-use std::io;
 
 use std::{
     io::{ErrorKind, Read, Write},
@@ -9,23 +9,28 @@ use std::{
     thread,
 };
 
+use bincode::serialize;
 use mpsc::TryRecvError;
+use serde::{Deserialize, Serialize};
 
 use std::{error::Error, time::Instant};
 pub mod algorithms;
 pub mod readers;
-use crate::{
-    algorithms::applyGainSignal,
-    readers::create_vector_from_csv,
-};
-use nalgebra:: DVector;
+use crate::{algorithms::applyGainSignal, readers::create_vector_from_csv};
+use nalgebra::DVector;
 
 const tolerance: f64 = 1e-8;
 
 const LOCAL: &str = "127.0.0.1:8181";
-const MSG_SIZE: usize = 32;
+const MSG_SIZE: usize = 200;
 
-fn main(){
+#[derive(Serialize, Deserialize)]
+struct Person {
+    name: String,
+    age: u8,
+    phones: Vec<String>,
+}
+fn main() {
     createProcess();
     let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect");
     client
@@ -49,9 +54,16 @@ fn main(){
         }
         match rx.try_recv() {
             Ok(msg) => {
-                let mut buff = msg.clone().into_bytes();
-                buff.resize(MSG_SIZE, 0);
-                client.write_all(&buff).expect("writing to socket failed");
+                let mut person1 = Person {
+                    name: String::from("João"),
+                    age: 25,
+                    phones: Vec::new(),
+                };
+                person1.phones.push(String::from("123-456-789"));
+                person1.phones.push(String::from("987-654-321"));
+                let mut p: Vec<u8> = serialize(&person1).unwrap();
+                p.resize(MSG_SIZE, 0);
+                client.write_all(&p).expect("writing to socket failed");
                 println!("message sent {:?}", msg);
             }
             Err(TryRecvError::Empty) => (),
@@ -80,4 +92,3 @@ fn createProcess() {
     let mut vector = create_vector_from_csv("./Data/G-30.csv").unwrap();
     vector = applyGainSignal(vector);
 }
-

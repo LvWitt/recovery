@@ -12,13 +12,21 @@ use crate::{
     algorithms::{cgne, cgnr},
     readers::{create_matrix_from_csv, create_vector_from_csv},
 };
+use bincode::deserialize;
 use nalgebra:: DVector;
+use serde::{Serialize, Deserialize};
 
 const tolerance: f64 = 1e-8;
 
 const LOCAL: &str = "0.0.0.0:8181";
-const MSG_SIZE: usize = 32;
+const MSG_SIZE: usize = 200;
 
+#[derive(Deserialize, Debug)]
+struct Person {
+    name: String,
+    age: u8,
+    phones: Vec<String>,
+}
 fn sleep() {
     thread::sleep(::std::time::Duration::from_millis(100));
 }
@@ -44,11 +52,11 @@ fn main() -> Result<(), Box<dyn Error>> {
             let mut num = 0;
             for _ in 0..2 {
                 num += 1;
-                thread::spawn( move || {
+             /*    thread::spawn( move || {
                         println!("----COMECANDO {}----", num);
                         let start1 = Instant::now();
-                        let vector = create_vector_from_csv("./Data/G-1.csv").unwrap();
-                        let matrix = create_matrix_from_csv("./Data/H-1.csv", 50816, 3600).unwrap();
+                        let vector = create_vector_from_csv("./src/Data/G-1.csv").unwrap();
+                        let matrix = create_matrix_from_csv("./src/Data/H-1.csv", 50816, 3600).unwrap();
                     // let matrix = create_matrix_from_csv("../Data/H-2.csv",27904,900).unwrap();
                         let end1 = Instant::now();
                         println!("{} - Leu arquivos em {:?}", num, end1 - start1);
@@ -66,7 +74,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                         create_img(cgnr, 60);
                         //create_img(cgnr, 30);
                     }
-                );
+                );*/
             }
 
             thread::spawn(move || loop {
@@ -74,11 +82,14 @@ fn main() -> Result<(), Box<dyn Error>> {
 
                 match socket.read_exact(&mut buff) {
                     Ok(_) => {
-                        let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
-                        let msg = String::from_utf8(msg).expect("invalid utf8 message");
-
-                        println!("{} {:?}", addr, msg);
-                        tx.send(msg).expect("failed to send message to rx");
+           
+                        println!("{:?}",buff);
+                        let teste: Person = deserialize(&buff).unwrap();
+                        println!("{:?}", teste)
+                        //let msg = String::from_utf8(msg).expect("invalid utf8 message");
+                        //let id = u32::from_be_bytes(msg[0..4].try_into().unwrap());
+                       // println!("{} {:?}", addr, teste);
+                      //  tx.send(id).expect("failed to send message to rx");
                     }
                     Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
                     Err(_) => {

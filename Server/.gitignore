@@ -1,0 +1,4 @@
+/target
+/Client/target
+/Client/Data/*.csv
+/src/Data/*.csv

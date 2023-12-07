@@ -2,3 +2,5 @@
 /Client/target
 /Client/Data/*.csv
 /src/Data/*.csv
+/Server/target
+/Server/src/Data/*.csv

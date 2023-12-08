@@ -1,10 +1,11 @@
 use nalgebra::DVector;
+use uuid::Uuid;
 pub enum ImageSize {
     Small,
     Medium,
 }
 
-pub fn create_img(vector: DVector<f64>, size: ImageSize, filename: u32) {
+pub fn create_img(vector: DVector<f64>, size: ImageSize, filename: Uuid) {
     let imgx: u32;
     let imgy: u32;
     match size {
@@ -30,6 +31,8 @@ pub fn create_img(vector: DVector<f64>, size: ImageSize, filename: u32) {
             *img_pixel = image::Rgb([r, r, r]);
         }
     }
-    let path = format!("image_output/{:?}.png", filename);
+
+    let escaped_filename = filename.to_string().replace("\"", "\\\"");
+    let path = format!("image_output/{}.png", &escaped_filename);
     let _ = imgbuf.save(path);
 }

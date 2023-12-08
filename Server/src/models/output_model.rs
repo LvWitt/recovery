@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use chrono::NaiveDateTime;
 use serde::Serialize;
+use uuid::Uuid;
 
 use super::Alghorithm;
 
@@ -14,5 +15,5 @@ pub struct JSONFileData{
     pub reconstruction_end_time: NaiveDateTime,
     pub image_size:u32,
     pub alghorithm: Alghorithm,
-    pub client_id:u32
+    pub client_id:Uuid
 }

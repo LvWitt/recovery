@@ -71,7 +71,7 @@ fn main() {
     println!("Write a message:");
 loop{
     for i in 0..100 {
-        thread::sleep(Duration::from_millis(500));
+        thread::sleep(Duration::from_millis(200));
         let _ = tx.send(i).is_err();
     }
 }

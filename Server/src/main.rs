@@ -3,7 +3,7 @@ use priority_queue::PriorityQueue;
 use rust::algorithms::cgne;
 use rust::csv_handlers;
 use rust::files_generator::{create_img, create_json_file, ImageSize};
-use rust::models::{ChannelMessage, Client, JSONFileData, Person};
+use rust::models::{ChannelMessage, Client, JSONFileData, Request};
 use std::io::Write;
 use std::sync::Arc;
 use std::{error::Error, time::Instant};
@@ -16,7 +16,7 @@ use std::{
     },
     thread,
 };
-
+use uuid::Uuid;
 const LOCAL: &str = "0.0.0.0:8181";
 const MSG_SIZE: usize = 200;
 const TOLERANCE: f64 = 1e-4;
@@ -55,12 +55,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             if let Ok(msg) = rx.try_recv() {
                 if let ChannelMessage::ClientData(client_data) = msg {
                     let mut pq = clients_priority_queue.lock().unwrap();
-                    let priority_number;
-                    if client_data.person.id % 2 == 0 {
-                        priority_number = 1;
-                    } else {
-                        priority_number = 0;
-                    }
+                    let priority_number=1;
+                    //aqui é onde vai a prioridade
+                
                     pq.push(client_data.clone(), priority_number as u32);
 
                     let mut p: Vec<u8> = serialize("Adicionado a fila de prioridades").unwrap();
@@ -84,7 +81,7 @@ fn main() -> Result<(), Box<dyn Error>> {
                 rayon::spawn(move || {
                     let cgne_data = cgne(&mh, &vt, TOLERANCE);
 
-                    create_img(cgne_data.image_vector, ImageSize::Medium, client.person.id);
+                    create_img(cgne_data.image_vector, ImageSize::Medium, client.client_id);
                     create_json_file(
                         JSONFileData {
                             iterations: cgne_data.iterations,
@@ -97,14 +94,14 @@ fn main() -> Result<(), Box<dyn Error>> {
                                 .naive_local(),
                             image_size: 60,
                             alghorithm: cgne_data.alghorithm,
-                            client_id: client.person.id,
+                            client_id: client.client_id,
                         },
-                        client.person.id,
+                        client.client_id,
                     );
 
                     println!(
                         "Terminou processamento do Client: {:?}, Priority: {}, execucao:{:?}",
-                        client.person.id, priority, cgne_data.reconstruction_time
+                        client.client_id, priority, cgne_data.reconstruction_time
                     );
                 })
             } else {
@@ -130,10 +127,11 @@ fn handle_client(mut socket: TcpStream, addr: String, tx: Sender<ChannelMessage>
 
         match socket.read_exact(&mut buff) {
             Ok(_) => {
-                let deserialized_msg: Person = deserialize(&buff).unwrap();
+                let deserialized_msg: Request = deserialize(&buff).unwrap();
                 // println!("{:?}", deserialized_msg);
                 let client_data: Client = Client {
-                    person: deserialized_msg,
+                    request: deserialized_msg,
+                    client_id:Uuid::new_v4(),
                     tcp_stream: Arc::new(socket.try_clone().unwrap()),
                 };
                 tx.send(ChannelMessage::ClientData(client_data))

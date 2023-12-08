@@ -1,13 +1,14 @@
-use std::{hash::{Hash, Hasher}, net::TcpStream};
+use std::{hash::{Hash, Hasher}, net::TcpStream, sync::Arc};
 use serde::Deserialize;
 
-#[derive(PartialEq, Eq, Hash, Deserialize,Debug)]
+#[derive(PartialEq, Eq, Hash, Deserialize,Debug, Clone)]
 pub struct Person{
-    id:u32
+    pub id:u32
 }
+#[derive(Debug,Clone)]
 pub struct Client{
     pub person:Person,
-    pub tcp_stream:TcpStream
+    pub tcp_stream:Arc<TcpStream>
 }
 
 impl Hash for Client {
@@ -21,3 +22,9 @@ impl PartialEq for Client {
     }
 }
 impl Eq for Client {}
+
+
+pub enum ChannelMessage {
+    ClientData(Client),
+    ConfirmMessage(String)
+}

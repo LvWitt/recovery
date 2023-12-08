@@ -1,19 +1,24 @@
+use std::time::Instant;
+
 use nalgebra::DVector;
 use nalgebra_sparse::csr::CsrMatrix;
 use nalgebra_sparse::ops::serial::spmm_csr_dense;
 use nalgebra_sparse::ops::Op;
 
-pub fn cgne(matrix_h: CsrMatrix<f64>, vector_g: DVector<f64>, tolerance: f64) -> DVector<f64> {
+use crate::models::{CGNEReturnType, Alghorithm};
+
+pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNEReturnType {
+    let start_timer = Instant::now();
     let matrix_h_transposed = matrix_h.transpose();
     let mut f = DVector::zeros(matrix_h.ncols());
-    let mut r = &vector_g - (&matrix_h * &f);
+    let mut r = vector_g - (matrix_h * &f);
     let mut p = &matrix_h_transposed * &r;
     let mut error_tolerance = 1.0;
     let mut iteration_count = 0;
-    
+
     while error_tolerance > tolerance {
         let residual_dot_residual = r.dot(&r);
-        let hp = &matrix_h * &p;
+        let hp = matrix_h * &p;
         let residual_norm = r.norm();
         let alpha = residual_dot_residual / (p.dot(&p));
         let beta: f64;
@@ -34,12 +39,20 @@ pub fn cgne(matrix_h: CsrMatrix<f64>, vector_g: DVector<f64>, tolerance: f64) ->
         //println!("Error Tolerance: {:?}", error_tolerance);
         iteration_count += 1;
     }
+    let end_timer = Instant::now();
 
-    println!("Iterations: {:?}", iteration_count);
-    return f;
+    return CGNEReturnType {
+        image_vector: f,
+        iterations: iteration_count,
+        reconstruction_time: end_timer - start_timer,
+        reconstruction_start_time: todo!(),
+        reconstruction_end_time: todo!(),
+        alghorithm: Alghorithm::CGNE(),
+    };
 }
 
 pub fn cgnr(matrix_h: CsrMatrix<f64>, vector_g: DVector<f64>, tolerance: f64) -> DVector<f64> {
+    // let start1 = Instant::now();
     let matrix_h_transposed = matrix_h.transpose();
     let mut f = DVector::zeros(matrix_h.ncols());
     let mut r = &vector_g - (&matrix_h * &f);

@@ -741,6 +741,7 @@ dependencies = [
  "nalgebra",
  "nalgebra-sparse",
  "priority-queue",
+ "rayon",
  "serde",
 ]
 

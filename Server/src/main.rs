@@ -1,25 +1,28 @@
+use bincode::{deserialize, serialize};
+use priority_queue::PriorityQueue;
+use rust::algorithms::cgne;
+use rust::csv_handlers;
+use rust::models::{ChannelMessage, Client, Person};
+use std::io::Write;
+use std::sync::Arc;
+use std::{error::Error, time::Instant};
 use std::{
     io::{ErrorKind, Read},
     net::{TcpListener, TcpStream},
-    sync::{mpsc, Mutex},
+    sync::{
+        mpsc::{self, Receiver, Sender},
+        Mutex,
+    },
     thread,
 };
-use priority_queue::PriorityQueue;
-use bincode::deserialize;
-use std::{error::Error, time::Instant};
-use std::sync::Arc;
-use rust::models::{Person, Client};
-//use rust::csv_handlers;
 
-
-//const tolerance: f64 = 1e-8;
 const LOCAL: &str = "0.0.0.0:8181";
 const MSG_SIZE: usize = 200;
+const TOLERANCE: f64 = 1e-8;
 
-fn sleep() {
-    thread::sleep(::std::time::Duration::from_millis(100));
+fn sleep(milis: u64) {
+    thread::sleep(::std::time::Duration::from_millis(milis));
 }
-
 
 fn main() -> Result<(), Box<dyn Error>> {
     let server = TcpListener::bind(LOCAL).expect("Listener failed to bind");
@@ -27,62 +30,88 @@ fn main() -> Result<(), Box<dyn Error>> {
         .set_nonblocking(true)
         .expect("failed to initialize non-blocking");
     let start1 = Instant::now();
-  //  let matrix_h = Arc::new(csv_handlers::create_matrix_from_csv("./src/Data/H-1.csv", 50816, 3600).unwrap());
-   // let matrix_h2 =  Arc::new(csv_handlers::create_matrix_from_csv("./src/Data/H-2.csv", 27904, 900).unwrap());
+    // let matrix_h = Arc::new(csv_handlers::create_matrix_from_csv("./src/Data/H-1.csv", 50816, 3600).unwrap());
+    let matrix_h2 =
+        Arc::new(csv_handlers::create_matrix_from_csv("./src/Data/H-2.csv", 27904, 900).unwrap());
+
+    let vector_teste =
+        Arc::new(csv_handlers::create_vector_from_csv("./src/Data/G-1.csv").unwrap());
     let end1 = Instant::now();
+
     println!("Leu arquivos 2 matriz em {:?}", end1 - start1);
-    let clients_priority_queue:Arc<Mutex<PriorityQueue<Client,u32>>> = Arc::new(Mutex::new(PriorityQueue::new()));
-    let (tx, rx) = mpsc::channel::<String>();
+    let clients_priority_queue: Arc<Mutex<PriorityQueue<Client, u32>>> =
+        Arc::new(Mutex::new(PriorityQueue::new()));
+    let (tx, rx): (Sender<ChannelMessage>, Receiver<ChannelMessage>) = mpsc::channel();
 
-    let pq_ref = clients_priority_queue.clone();
-    thread::spawn(move || {
+    // let cloned_tx = tx.clone();
+    let cloned_client_pq = clients_priority_queue.clone();
+    thread::spawn(move || loop {
+        if let Ok(msg) = rx.try_recv() {
+            if let ChannelMessage::ClientData(client_data) = msg {
+                let mut pq = clients_priority_queue.lock().unwrap();
+                let priority_number;
+                if client_data.person.id % 2 == 0 {
+                    priority_number = 1;
+                } else {
+                    priority_number = 0;
+                }
+                pq.push(client_data.clone(), priority_number as u32);
+
+                let mut p: Vec<u8> = serialize("Adicionado a fila de prioridades").unwrap();
+                p.resize(MSG_SIZE, 0);
+                let mut tcp_stream: TcpStream = client_data.tcp_stream.clone().try_clone().unwrap();
+                tcp_stream.write_all(&p).expect("writing to socket failed");
+            }
+        }
+        sleep(100);
+    });
+    //thread que processa essa merda
+    thread::spawn(move || loop {
         loop {
-            if let Some((client, _)) = pq_ref.lock().unwrap().peek() {
-                expensive_function(client);
+            let client_data = {
+                let mut pq = cloned_client_pq.lock().unwrap();
+                pq.pop()
+            };
+            let mh = matrix_h2.clone();
+            let vt = vector_teste.clone();
+            if let Some((client, priority)) = client_data {
+                let cgne_data = cgne(&mh, &vt, TOLERANCE);
+                println!(
+                    "Terminou processamento do Client: {:?}, Priority: {}, tempo:{:?}",
+                    client.person.id, priority, cgne_data.reconstruction_time
+                )
+            } else {
+                // Fila de prioridade vazia, espere um pouco antes de verificar novamente
+                sleep(100);
             }
-            if let Ok(msg) = rx.try_recv() {
-               /*  clients = clients
-                .into_iter()
-                .filter_map(|mut client:TcpStream| {
-                    let mut buff = msg.clone().into_bytes();
-                    buff.resize(MSG_SIZE, 0);
-
-                    client.write_all(&buff).map(|_| client).ok()
-                })
-                .collect::<Vec<_>>();*/
-            }
-            sleep();
         }
     });
     loop {
         if let Ok((socket, addr)) = server.accept() {
             println!("Client {} connected", addr);
-            let _ = tx.clone();
             //clients.push(socket.try_clone().expect("failed to clone client"));
-            let pq_ref = clients_priority_queue.clone();
-            thread::spawn(move || handle_client(socket, addr.to_string(),  pq_ref));
 
+            let tx = tx.clone();
+            thread::spawn(move || handle_client(socket, addr.to_string(), tx));
         }
-        sleep();
+        sleep(100);
     }
 }
 
-fn expensive_function(_: &Client) -> () {
-    todo!()
-}
-
-
-fn handle_client(mut socket: TcpStream, addr: String, clients_priority_queue:   Arc<Mutex<PriorityQueue<Client, u32>>>) {
+fn handle_client(mut socket: TcpStream, addr: String, tx: Sender<ChannelMessage>) {
     thread::spawn(move || loop {
         let mut buff = vec![0; MSG_SIZE];
 
         match socket.read_exact(&mut buff) {
             Ok(_) => {
                 let deserialized_msg: Person = deserialize(&buff).unwrap();
-                println!("{:?}", deserialized_msg);
-                let mut pq = clients_priority_queue.lock().unwrap();
-                let client_data:Client = Client { person: deserialized_msg, tcp_stream: socket.try_clone().unwrap() };
-                pq.push(client_data, 0);
+                // println!("{:?}", deserialized_msg);
+                let client_data: Client = Client {
+                    person: deserialized_msg,
+                    tcp_stream: Arc::new(socket.try_clone().unwrap()),
+                };
+                tx.send(ChannelMessage::ClientData(client_data))
+                    .expect("failed to send message to rx");
             }
             Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
             Err(_) => {
@@ -90,6 +119,6 @@ fn handle_client(mut socket: TcpStream, addr: String, clients_priority_queue:   
                 break;
             }
         }
-        sleep();
+        sleep(100);
     });
 }

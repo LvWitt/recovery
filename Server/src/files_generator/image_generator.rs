@@ -4,9 +4,9 @@ pub enum ImageSize {
     Medium,
 }
 
-pub fn create_img(vector: DVector<f64>, size:ImageSize) {
-    let imgx:u32;
-    let imgy:u32; 
+pub fn create_img(vector: DVector<f64>, size: ImageSize, filename: u32) {
+    let imgx: u32;
+    let imgy: u32;
     match size {
         ImageSize::Small => {
             imgx = 30;
@@ -27,9 +27,9 @@ pub fn create_img(vector: DVector<f64>, size:ImageSize) {
             let index: usize = ((i * imgx) + j) as usize;
             let pixel_value = vector.get(index).unwrap();
             let r = (pixel_value * 255.0) as u8;
-            *img_pixel = image::Rgb([r, 0, 0]);
+            *img_pixel = image::Rgb([r, r, r]);
         }
     }
-
-    let _ = imgbuf.save("MEUFILHO.png");
+    let path = format!("image_output/{:?}.png", filename);
+    let _ = imgbuf.save(path);
 }

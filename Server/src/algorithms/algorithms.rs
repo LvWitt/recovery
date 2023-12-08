@@ -1,5 +1,5 @@
 use std::time::Instant;
-
+use chrono::{Local};
 use nalgebra::DVector;
 use nalgebra_sparse::csr::CsrMatrix;
 use nalgebra_sparse::ops::serial::spmm_csr_dense;
@@ -9,6 +9,7 @@ use crate::models::{CGNEReturnType, Alghorithm};
 
 pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNEReturnType {
     let start_timer = Instant::now();
+    let start_local_time = Local::now();
     let matrix_h_transposed = matrix_h.transpose();
     let mut f = DVector::zeros(matrix_h.ncols());
     let mut r = vector_g - (matrix_h * &f);
@@ -40,14 +41,15 @@ pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) 
         iteration_count += 1;
     }
     let end_timer = Instant::now();
-
+    let end_local_time = Local::now();
+    
     return CGNEReturnType {
         image_vector: f,
         iterations: iteration_count,
         reconstruction_time: end_timer - start_timer,
-        reconstruction_start_time: todo!(),
-        reconstruction_end_time: todo!(),
-        alghorithm: Alghorithm::CGNE(),
+        reconstruction_start_time: start_local_time,
+        reconstruction_end_time: end_local_time,
+        alghorithm: Alghorithm::CGNE,
     };
 }
 

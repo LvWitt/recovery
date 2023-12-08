@@ -2,7 +2,8 @@ use bincode::{deserialize, serialize};
 use priority_queue::PriorityQueue;
 use rust::algorithms::cgne;
 use rust::csv_handlers;
-use rust::models::{ChannelMessage, Client, Person};
+use rust::files_generator::{create_img, create_json_file, ImageSize};
+use rust::models::{ChannelMessage, Client, JSONFileData, Person};
 use std::io::Write;
 use std::sync::Arc;
 use std::{error::Error, time::Instant};
@@ -18,24 +19,28 @@ use std::{
 
 const LOCAL: &str = "0.0.0.0:8181";
 const MSG_SIZE: usize = 200;
-const TOLERANCE: f64 = 1e-8;
+const TOLERANCE: f64 = 1e-4;
 
 fn sleep(milis: u64) {
     thread::sleep(::std::time::Duration::from_millis(milis));
 }
 
 fn main() -> Result<(), Box<dyn Error>> {
+    let pool = rayon::ThreadPoolBuilder::new().build().unwrap();
+
     let server = TcpListener::bind(LOCAL).expect("Listener failed to bind");
     server
         .set_nonblocking(true)
         .expect("failed to initialize non-blocking");
     let start1 = Instant::now();
-    // let matrix_h = Arc::new(csv_handlers::create_matrix_from_csv("./src/Data/H-1.csv", 50816, 3600).unwrap());
-    let matrix_h2 =
+    let matrix_h =
+        Arc::new(csv_handlers::create_matrix_from_csv("./src/Data/H-1.csv", 50816, 3600).unwrap());
+    let _ =
         Arc::new(csv_handlers::create_matrix_from_csv("./src/Data/H-2.csv", 27904, 900).unwrap());
 
     let vector_teste =
-        Arc::new(csv_handlers::create_vector_from_csv("./src/Data/G-1.csv").unwrap());
+        Arc::new(csv_handlers::create_vector_from_csv("./src/Data/GRANDE-1.csv").unwrap());
+
     let end1 = Instant::now();
 
     println!("Leu arquivos 2 matriz em {:?}", end1 - start1);
@@ -45,52 +50,73 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     // let cloned_tx = tx.clone();
     let cloned_client_pq = clients_priority_queue.clone();
-    thread::spawn(move || loop {
-        if let Ok(msg) = rx.try_recv() {
-            if let ChannelMessage::ClientData(client_data) = msg {
-                let mut pq = clients_priority_queue.lock().unwrap();
-                let priority_number;
-                if client_data.person.id % 2 == 0 {
-                    priority_number = 1;
-                } else {
-                    priority_number = 0;
-                }
-                pq.push(client_data.clone(), priority_number as u32);
+    pool.install(|| {
+        rayon::spawn(move || loop {
+            if let Ok(msg) = rx.try_recv() {
+                if let ChannelMessage::ClientData(client_data) = msg {
+                    let mut pq = clients_priority_queue.lock().unwrap();
+                    let priority_number;
+                    if client_data.person.id % 2 == 0 {
+                        priority_number = 1;
+                    } else {
+                        priority_number = 0;
+                    }
+                    pq.push(client_data.clone(), priority_number as u32);
 
-                let mut p: Vec<u8> = serialize("Adicionado a fila de prioridades").unwrap();
-                p.resize(MSG_SIZE, 0);
-                let mut tcp_stream: TcpStream = client_data.tcp_stream.clone().try_clone().unwrap();
-                tcp_stream.write_all(&p).expect("writing to socket failed");
+                    let mut p: Vec<u8> = serialize("Adicionado a fila de prioridades").unwrap();
+                    p.resize(MSG_SIZE, 0);
+                    let mut tcp_stream: TcpStream =
+                        client_data.tcp_stream.clone().try_clone().unwrap();
+                    tcp_stream.write_all(&p).expect("writing to socket failed");
+                }
             }
-        }
-        sleep(100);
-    });
-    //thread que processa essa merda
-    thread::spawn(move || loop {
-        loop {
+            sleep(100);
+        });
+        //thread que processa essa merda
+        rayon::spawn(move || loop {
             let client_data = {
                 let mut pq = cloned_client_pq.lock().unwrap();
                 pq.pop()
             };
-            let mh = matrix_h2.clone();
+            let mh = matrix_h.clone();
             let vt = vector_teste.clone();
             if let Some((client, priority)) = client_data {
-                let cgne_data = cgne(&mh, &vt, TOLERANCE);
-                println!(
-                    "Terminou processamento do Client: {:?}, Priority: {}, tempo:{:?}",
-                    client.person.id, priority, cgne_data.reconstruction_time
-                )
+                rayon::spawn(move || {
+                    let cgne_data = cgne(&mh, &vt, TOLERANCE);
+
+                    create_img(cgne_data.image_vector, ImageSize::Medium, client.person.id);
+                    create_json_file(
+                        JSONFileData {
+                            iterations: cgne_data.iterations,
+                            reconstruction_time: cgne_data.reconstruction_time,
+                            reconstruction_start_time: cgne_data
+                                .reconstruction_start_time
+                                .naive_local(),
+                            reconstruction_end_time: cgne_data
+                                .reconstruction_end_time
+                                .naive_local(),
+                            image_size: 60,
+                            alghorithm: cgne_data.alghorithm,
+                            client_id: client.person.id,
+                        },
+                        client.person.id,
+                    );
+
+                    println!(
+                        "Terminou processamento do Client: {:?}, Priority: {}, execucao:{:?}",
+                        client.person.id, priority, cgne_data.reconstruction_time
+                    );
+                })
             } else {
                 // Fila de prioridade vazia, espere um pouco antes de verificar novamente
                 sleep(100);
             }
-        }
+        });
     });
+
     loop {
         if let Ok((socket, addr)) = server.accept() {
             println!("Client {} connected", addr);
-            //clients.push(socket.try_clone().expect("failed to clone client"));
-
             let tx = tx.clone();
             thread::spawn(move || handle_client(socket, addr.to_string(), tx));
         }

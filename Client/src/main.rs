@@ -26,9 +26,7 @@ const MSG_SIZE: usize = 200;
 
 #[derive(Serialize, Deserialize)]
 struct Person {
-    name: String,
-    age: u8,
-    phones: Vec<String>,
+    id: u32,
 }
 fn main() {
     createProcess();
@@ -37,13 +35,13 @@ fn main() {
         .set_nonblocking(true)
         .expect("failed to initiate non-blocking");
 
-    let (tx, rx) = mpsc::channel::<String>();
+    let (tx, rx) = mpsc::channel::<u32>();
 
     thread::spawn(move || loop {
         let mut buff = vec![0; MSG_SIZE];
         match client.read_exact(&mut buff) {
             Ok(_) => {
-                let msg = buff.into_iter().take_while(|&x| x != 0).collect::<Vec<_>>();
+                let msg = String::from_utf8(buff).expect("invalid utf8 message");
                 println!("message recv {:?}", msg);
             }
             Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
@@ -54,16 +52,13 @@ fn main() {
         }
         match rx.try_recv() {
             Ok(msg) => {
-                let mut person1 = Person {
-                    name: String::from("João"),
-                    age: 25,
-                    phones: Vec::new(),
-                };
-                person1.phones.push(String::from("123-456-789"));
-                person1.phones.push(String::from("987-654-321"));
+                let person1 = Person { id: msg };
+
                 let mut p: Vec<u8> = serialize(&person1).unwrap();
+
                 p.resize(MSG_SIZE, 0);
                 client.write_all(&p).expect("writing to socket failed");
+
                 println!("message sent {:?}", msg);
             }
             Err(TryRecvError::Empty) => (),
@@ -74,21 +69,16 @@ fn main() {
     });
 
     println!("Write a message:");
-    loop {
-        let mut buff = String::new();
-        io::stdin()
-            .read_line(&mut buff)
-            .expect("reading from stdin failed");
-
-        let msg = buff.trim().to_string();
-        if msg == ":quit" || tx.send(msg).is_err() {
-            break;
-        }
+loop{
+    for i in 0..100 {
+        thread::sleep(Duration::from_millis(500));
+        let _ = tx.send(i).is_err();
     }
-    println!("Bye bye");
+}
+    
 }
 
 fn createProcess() {
-    let mut vector = create_vector_from_csv("./Data/G-30.csv").unwrap();
-    vector = applyGainSignal(vector);
+    //  let mut vector = create_vector_from_csv("./Data/G-30.csv").unwrap();
+    //vector = applyGainSignal(vector);
 }

@@ -1,8 +1,22 @@
 use nalgebra::DVector;
+pub enum ImageSize {
+    Small,
+    Medium,
+}
 
-pub fn create_img(vector: DVector<f64>, size:u32) {
-    let imgx = size;
-    let imgy = size;
+pub fn create_img(vector: DVector<f64>, size:ImageSize) {
+    let imgx:u32;
+    let imgy:u32; 
+    match size {
+        ImageSize::Small => {
+            imgx = 30;
+            imgy = 30;
+        }
+        ImageSize::Medium => {
+            imgx = 60;
+            imgy = 60;
+        }
+    }
 
     let mut imgbuf: image::ImageBuffer<image::Rgb<u8>, Vec<u8>> =
         image::ImageBuffer::new(imgx, imgy);

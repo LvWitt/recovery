@@ -1,7 +1,7 @@
 use csv::ReaderBuilder;
-use nalgebra::{DMatrix, DVector};
-use nalgebra_sparse::{csr::CsrMatrix, CooMatrix};
-use std::{error::Error, fs::File, io::BufReader, time::Instant};
+use nalgebra:: DVector;
+
+use std::error::Error;
 
 pub fn create_vector_from_csv(filename: &str) -> Result<DVector<f64>, Box<dyn Error>> {
     let mut rdr = ReaderBuilder::new()

@@ -26,3 +26,8 @@ pub struct CGNRReturnType {
     pub reconstruction_end_time: DateTime<Local>,
     pub alghorithm: Alghorithm,
 }
+
+pub enum AlgorithmsReturnType{
+    CGNEReturnType(CGNEReturnType),
+    CGNRReturnType(CGNRReturnType)
+}

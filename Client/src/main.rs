@@ -1,35 +1,37 @@
-use std::io;
 use std::net::TcpStream;
 use std::time::Duration;
 
 use std::{
     io::{ErrorKind, Read, Write},
-    net::TcpListener,
     sync::mpsc,
     thread,
 };
 
-use bincode::serialize;
+use rand::Rng;
+
+use bincode::{serialize, deserialize};
 use mpsc::TryRecvError;
 use serde::{Deserialize, Serialize};
 
-use std::{error::Error, time::Instant};
 pub mod algorithms;
 pub mod readers;
-use crate::{algorithms::applyGainSignal, readers::create_vector_from_csv};
-use nalgebra::DVector;
-
-const tolerance: f64 = 1e-8;
+use crate::{algorithms::apply_gain_signal, readers::create_vector_from_csv};
 
 const LOCAL: &str = "127.0.0.1:8181";
-const MSG_SIZE: usize = 200;
+const MSG_SIZE: usize = 600000;
 
-#[derive(Serialize, Deserialize)]
-struct Person {
-    id: u32,
+
+#[derive(Serialize, Deserialize, Debug)]
+struct Request {
+    tipo_algoritmo: i32,
+    tipo_sinal: i32,
+    tipo_matriz: i32,
+    tamanho: i32,
+    sinal: Vec<f64>,
 }
+
 fn main() {
-    createProcess();
+    //create_Randon_Request();
     let mut client = TcpStream::connect(LOCAL).expect("Stream failed to connect");
     client
         .set_nonblocking(true)
@@ -41,7 +43,7 @@ fn main() {
         let mut buff = vec![0; MSG_SIZE];
         match client.read_exact(&mut buff) {
             Ok(_) => {
-                let msg = String::from_utf8(buff).expect("invalid utf8 message");
+                let msg:String = deserialize(&buff).expect("invalid utf8 message");
                 println!("message recv {:?}", msg);
             }
             Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
@@ -52,14 +54,19 @@ fn main() {
         }
         match rx.try_recv() {
             Ok(msg) => {
-                let person1 = Person { id: msg };
+                let mut rng = rand::thread_rng();
+                let number_requests = rng.gen_range(0..10);
 
-                let mut p: Vec<u8> = serialize(&person1).unwrap();
+                for _ in 0..number_requests {
+                    let request = create_process_request();
+                    let mut p: Vec<u8> = serialize(&request).unwrap();
 
-                p.resize(MSG_SIZE, 0);
-                client.write_all(&p).expect("writing to socket failed");
-
-                println!("message sent {:?}", msg);
+                    p.resize(MSG_SIZE, 0);
+                    match client.write_all(&p) {
+                        Ok(_) =>  println!("Request sent {:?}", msg),
+                        Err(_) =>  thread::sleep(Duration::from_millis(50)),
+                    }
+                }
             }
             Err(TryRecvError::Empty) => (),
             Err(TryRecvError::Disconnected) => break,
@@ -69,16 +76,43 @@ fn main() {
     });
 
     println!("Write a message:");
-loop{
-    for i in 0..100 {
-        thread::sleep(Duration::from_millis(200));
-        let _ = tx.send(i).is_err();
+    loop {
+       for i in 0..100 {
+            let _ = tx.clone().send(i);
+            thread::sleep(Duration::from_millis(500));
+
+        }
+
     }
 }
-    
-}
 
-fn createProcess() {
-    //  let mut vector = create_vector_from_csv("./Data/G-30.csv").unwrap();
-    //vector = applyGainSignal(vector);
+fn create_process_request() -> Request {
+    let mut rng = rand::thread_rng();
+
+    let size = rng.gen_range(30..=60);
+    let matriz = rng.gen_range(1..2);
+    let signal;
+
+    if matriz == 30 {
+        signal = rng.gen_range(1..3);
+    } else {
+        signal = rng.gen_range(3..5);
+    }
+
+    let algorithm = rng.gen_range(1..2);
+
+    let mut vector = create_vector_from_csv("./Data/G-60-1.csv").unwrap();
+    vector = apply_gain_signal(vector);
+    let aux: Vec<f64> = vector.data.as_vec().to_vec();
+
+    let info = Request {
+        tipo_algoritmo: algorithm,
+        tipo_sinal: signal,
+        tipo_matriz: matriz,
+        tamanho: size,
+        sinal: aux,
+    };
+
+    //print!("{:?}", info);
+    return info;
 }

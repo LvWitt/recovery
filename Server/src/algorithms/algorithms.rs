@@ -1,11 +1,11 @@
 use std::time::Instant;
-use chrono::{Local};
+use chrono::Local;
 use nalgebra::DVector;
 use nalgebra_sparse::csr::CsrMatrix;
 use nalgebra_sparse::ops::serial::spmm_csr_dense;
 use nalgebra_sparse::ops::Op;
 
-use crate::models::{CGNEReturnType, Alghorithm};
+use crate::models::{CGNEReturnType, Alghorithm, CGNRReturnType};
 
 pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNEReturnType {
     let start_timer = Instant::now();
@@ -17,7 +17,7 @@ pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) 
     let mut error_tolerance = 1.0;
     let mut iteration_count = 0;
 
-    while error_tolerance > tolerance {
+    while error_tolerance > tolerance  && iteration_count<30{
         let residual_dot_residual = r.dot(&r);
         let hp = matrix_h * &p;
         let residual_norm = r.norm();
@@ -53,19 +53,20 @@ pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) 
     };
 }
 
-pub fn cgnr(matrix_h: CsrMatrix<f64>, vector_g: DVector<f64>, tolerance: f64) -> DVector<f64> {
-    // let start1 = Instant::now();
+pub fn cgnr(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNRReturnType {
+    let start_timer = Instant::now();
+    let start_local_time = Local::now();
     let matrix_h_transposed = matrix_h.transpose();
     let mut f = DVector::zeros(matrix_h.ncols());
-    let mut r = &vector_g - (&matrix_h * &f);
+    let mut r = vector_g - (matrix_h * &f);
     let mut z = &matrix_h_transposed * &r;
     let mut p = z.clone();
 
     let mut error_tolerance = 1.0;
     let mut iteration_count = 0;
     let mut z_old_norm = z.norm_squared();
-    while error_tolerance > tolerance {
-        let w = &matrix_h * &p;
+    while error_tolerance > tolerance && iteration_count<30 {
+        let w = matrix_h * &p;
         let alpha = z.norm_squared() / w.norm_squared();
         let r_old_norm = r.norm();
         let beta: f64;
@@ -82,7 +83,15 @@ pub fn cgnr(matrix_h: CsrMatrix<f64>, vector_g: DVector<f64>, tolerance: f64) ->
         //println!("Error Tolerance: {:?}", error_tolerance);
         iteration_count += 1;
     }
-
-    println!("Iterations: {:?}", iteration_count);
-    return f;
+    let end_timer = Instant::now();
+    let end_local_time = Local::now();
+    //println!("Iterations: {:?}", iteration_count);
+    return CGNRReturnType {
+        image_vector: f,
+        iterations: iteration_count,
+        reconstruction_time: end_timer - start_timer,
+        reconstruction_start_time: start_local_time,
+        reconstruction_end_time: end_local_time,
+        alghorithm: Alghorithm::CGNR,
+    };
 }

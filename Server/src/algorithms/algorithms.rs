@@ -5,9 +5,9 @@ use nalgebra_sparse::csr::CsrMatrix;
 use nalgebra_sparse::ops::serial::spmm_csr_dense;
 use nalgebra_sparse::ops::Op;
 
-use crate::models::{CGNEReturnType, Alghorithm, CGNRReturnType};
+use crate::models::{CGNEReturnType, Alghorithm, CGNRReturnType, AlgorithmsReturnType};
 
-pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNEReturnType {
+fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNEReturnType {
     let start_timer = Instant::now();
     let start_local_time = Local::now();
     let matrix_h_transposed = matrix_h.transpose();
@@ -53,7 +53,7 @@ pub fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) 
     };
 }
 
-pub fn cgnr(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNRReturnType {
+fn cgnr(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNRReturnType {
     let start_timer = Instant::now();
     let start_local_time = Local::now();
     let matrix_h_transposed = matrix_h.transpose();
@@ -94,4 +94,20 @@ pub fn cgnr(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) 
         reconstruction_end_time: end_local_time,
         alghorithm: Alghorithm::CGNR,
     };
+}
+
+
+pub fn process_algorithm(
+    mh: &CsrMatrix<f64>,
+    vt: &DVector<f64>,
+    tolerance: f64,
+    algorithm_name: &str,
+) -> Result<AlgorithmsReturnType, String> {
+    let algorithm_data:AlgorithmsReturnType = match algorithm_name {
+        "cgne" => AlgorithmsReturnType::CGNEReturnType(cgne(mh, vt, tolerance)),
+        "cgnr" => AlgorithmsReturnType::CGNRReturnType(cgnr(mh, vt, tolerance)),
+        _ => return Err(format!("Unsupported algorithm type: {}", algorithm_name)), 
+    };
+    println!("Processed");
+   return Ok(algorithm_data)
 }

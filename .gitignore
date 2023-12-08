@@ -4,3 +4,6 @@
 /src/Data/*.csv
 /Server/target
 /Server/src/Data/*.csv
+/Server/client_output/*
+/Server/image_output/*
+/Server/report_output/*

@@ -5,19 +5,10 @@ pub enum ImageSize {
     Medium,
 }
 
-pub fn create_img(vector: DVector<f64>, size: ImageSize, filename: Uuid) {
-    let imgx: u32;
-    let imgy: u32;
-    match size {
-        ImageSize::Small => {
-            imgx = 30;
-            imgy = 30;
-        }
-        ImageSize::Medium => {
-            imgx = 60;
-            imgy = 60;
-        }
-    }
+pub fn create_img(vector: DVector<f64>, size: u32, filename: Uuid) {
+    let imgx: u32= size;
+    let imgy: u32 =size;
+
 
     let mut imgbuf: image::ImageBuffer<image::Rgb<u8>, Vec<u8>> =
         image::ImageBuffer::new(imgx, imgy);

@@ -9,8 +9,9 @@ use std::{
 
 use rand::Rng;
 
-use bincode::{serialize, deserialize};
+use bincode::{deserialize, serialize};
 use mpsc::TryRecvError;
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 
 pub mod algorithms;
@@ -19,7 +20,6 @@ use crate::{algorithms::apply_gain_signal, readers::create_vector_from_csv};
 
 const LOCAL: &str = "127.0.0.1:8181";
 const MSG_SIZE: usize = 600000;
-
 
 #[derive(Serialize, Deserialize, Debug)]
 struct Request {
@@ -43,7 +43,7 @@ fn main() {
         let mut buff = vec![0; MSG_SIZE];
         match client.read_exact(&mut buff) {
             Ok(_) => {
-                let msg:String = deserialize(&buff).expect("invalid utf8 message");
+                let msg: String = deserialize(&buff).expect("invalid utf8 message");
                 println!("message recv {:?}", msg);
             }
             Err(ref err) if err.kind() == ErrorKind::WouldBlock => (),
@@ -63,8 +63,8 @@ fn main() {
 
                     p.resize(MSG_SIZE, 0);
                     match client.write_all(&p) {
-                        Ok(_) =>  println!("Request sent {:?}", msg),
-                        Err(_) =>  thread::sleep(Duration::from_millis(50)),
+                        Ok(_) => println!("Request sent {:?}", msg),
+                        Err(_) => thread::sleep(Duration::from_millis(50)),
                     }
                 }
             }
@@ -77,19 +77,38 @@ fn main() {
 
     println!("Write a message:");
     loop {
-       for i in 0..100 {
+        for i in 0..100 {
             let _ = tx.clone().send(i);
             thread::sleep(Duration::from_millis(500));
-
         }
-
     }
 }
 
+struct ImgData {
+    file_name: String,
+    file_size: i32,
+}
 fn create_process_request() -> Request {
     let mut rng = rand::thread_rng();
+    let vec_options = [
+        ImgData {
+            file_name: "./Data/G-60-1.csv".to_owned(),
+            file_size: 60,
+        },
+        ImgData {
+            file_name: "./Data/G-60-2.csv".to_owned(),
+            file_size: 60,
+        },
+        ImgData {
+            file_name: "./Data/G-30-2.csv".to_owned(),
+            file_size: 30,
+        },
+        ImgData {
+            file_name: "./Data/G-30-2.csv".to_owned(),
+            file_size: 30,
+        },
+    ];
 
-    let size = rng.gen_range(30..=60);
     let matriz = rng.gen_range(1..2);
     let signal;
 
@@ -99,20 +118,28 @@ fn create_process_request() -> Request {
         signal = rng.gen_range(3..5);
     }
 
-    let algorithm = rng.gen_range(1..2);
+    let algorithm = rng.gen_range(1..3);
 
-    let mut vector = create_vector_from_csv("./Data/G-60-1.csv").unwrap();
-    vector = apply_gain_signal(vector);
+    let selected_option = vec_options.choose(&mut rng).unwrap();
+    let mut vector = create_vector_from_csv(&selected_option.file_name).unwrap();
+    let s:usize;
+    //if aqui pq to sem tempo
+    if selected_option.file_size==30 {
+        s = 436
+    }else{
+        s = 794;
+    }
+    vector = apply_gain_signal(vector,s);
     let aux: Vec<f64> = vector.data.as_vec().to_vec();
 
     let info = Request {
         tipo_algoritmo: algorithm,
         tipo_sinal: signal,
         tipo_matriz: matriz,
-        tamanho: size,
+        tamanho: selected_option.file_size,
         sinal: aux,
     };
 
-    //print!("{:?}", info);
+   // print!("{:?}", info.tamanho);
     return info;
 }

@@ -5,7 +5,10 @@ use nalgebra_sparse::csr::CsrMatrix;
 use nalgebra_sparse::ops::serial::spmm_csr_dense;
 use nalgebra_sparse::ops::Op;
 
+
 use crate::models::{CGNEReturnType, Alghorithm, CGNRReturnType, AlgorithmsReturnType};
+
+
 
 fn cgne(matrix_h: &CsrMatrix<f64>, vector_g: &DVector<f64>, tolerance: f64) -> CGNEReturnType {
     let start_timer = Instant::now();

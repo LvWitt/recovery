@@ -14,6 +14,6 @@ pub struct JSONFileData{
     pub reconstruction_start_time: NaiveDateTime,
     pub reconstruction_end_time: NaiveDateTime,
     pub image_size:u32,
-    pub alghorithm: Alghorithm,
+    pub algorithm: Alghorithm,
     pub client_id:Uuid
 }

@@ -109,7 +109,7 @@ fn create_process_request() -> Request {
         },
     ];
 
-    let matriz = rng.gen_range(1..2);
+    let matriz = rng.gen_range(1..3);
     let signal;
 
     if matriz == 30 {
@@ -121,25 +121,29 @@ fn create_process_request() -> Request {
     let algorithm = rng.gen_range(1..3);
 
     let selected_option = vec_options.choose(&mut rng).unwrap();
-    let mut vector = create_vector_from_csv(&selected_option.file_name).unwrap();
-    let s:usize;
+    let vector = create_vector_from_csv(&selected_option.file_name).unwrap();
+    let s: usize;
+    let sinal ;
     //if aqui pq to sem tempo
-    if selected_option.file_size==30 {
+    if selected_option.file_size == 30 {
         s = 436
-    }else{
+    } else {
         s = 794;
     }
-    vector = apply_gain_signal(vector,s);
-    let aux: Vec<f64> = vector.data.as_vec().to_vec();
-
+    if matriz==1{
+        sinal = apply_gain_signal(vector, s); 
+    }else{
+        sinal = vector.as_slice().to_vec();
+    }
+    
     let info = Request {
         tipo_algoritmo: algorithm,
         tipo_sinal: signal,
         tipo_matriz: matriz,
         tamanho: selected_option.file_size,
-        sinal: aux,
+         sinal,
     };
 
-   // print!("{:?}", info.tamanho);
+    // print!("{:?}", info.tamanho);
     return info;
 }

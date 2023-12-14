@@ -14,6 +14,9 @@ serde = { version = "1.0.190", features = ["derive"] }
 nalgebra-sparse = "0.9.0"
 image = "0.24.7"
 rand = "0.8.5"
+plotters = "0.3.5"
+chrono = { version = "0.4.31", features = ["serde"]}
+serde_json = "1.0.1"
 
 [[bench]]
 name="cge_bench"

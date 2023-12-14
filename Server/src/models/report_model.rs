@@ -6,5 +6,5 @@ pub struct UsageReport{
     pub start_time: NaiveDateTime,
     pub end_time: NaiveDateTime,
     pub cpu_usage: Vec<f32>,
-    pub ram_usage:Vec<u64>
+    pub ram_usage:Vec<f32>
 }

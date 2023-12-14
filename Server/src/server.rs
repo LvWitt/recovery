@@ -19,13 +19,12 @@ use crate::{
     algorithms::process_algorithm,
     csv_handlers,
     files_generator::{create_img, create_json_file},
-    models::{AlgorithmsReturnType, ChannelMessage, Client, JSONFileData, Response},
+    models::{AlgorithmsReturnType, ChannelMessage, Client, JSONFileData, Response}, usage_monitor::start_usage_monitor,
 };
 
 const LOCAL: &str = "0.0.0.0:8181";
 const MSG_SIZE: usize = 600000;
 const TOLERANCE: f64 = 1e-4;
-
 
 pub fn start_server(clients_priority_queue: Arc<Mutex<PriorityQueue<Client, u32>>>) {
     let server = TcpListener::bind(LOCAL).expect("Listener failed to bind");
@@ -39,6 +38,7 @@ pub fn start_server(clients_priority_queue: Arc<Mutex<PriorityQueue<Client, u32>
     loop {
         if let Ok((socket, addr)) = server.accept() {
             println!("Client {} connected", addr);
+            start_usage_monitor();
             let tx = tx.clone();
             thread::spawn(move || handle_client(socket, addr.to_string(), tx));
         }
@@ -108,13 +108,15 @@ pub fn start_processing_algorithm_queue(cloned_client_pq: Arc<Mutex<PriorityQueu
     let end1 = Instant::now();
     println!("Leu 2 arquivos em {:?}", end1 - start1);
     rayon::spawn(move || loop {
+        let client_priority_queue = cloned_client_pq.lock().unwrap();
+
         let client_data = {
-            let mut pq = cloned_client_pq.lock().unwrap();
+            let mut pq = client_priority_queue;
             pq.pop()
         };
         if let Some((client, priority)) = client_data {
             let mh = matrix_h.clone();
-            let mh2= matrix_h2.clone();
+            let mh2 = matrix_h2.clone();
             rayon::spawn(move || {
                 let d_vector = DVector::from_vec(client.request.sinal);
 
@@ -160,6 +162,15 @@ pub fn start_processing_algorithm_queue(cloned_client_pq: Arc<Mutex<PriorityQueu
                                 "Terminou processamento do cliente: {:?}, Priority: {}, execucao:{:?}",
                                 client.client_id, priority, algorithm_data.reconstruction_time
                             );
+                            if client.request.is_last{      
+                                let mut p: Vec<u8> = serialize("finalizado").unwrap();
+                                p.resize(MSG_SIZE, 0);
+                                let mut tcp_stream: TcpStream =
+                                    client.tcp_stream.clone().try_clone().unwrap();
+                                let _ = tcp_stream
+                                    .write_all(&p)
+                                    .map_err(|_| thread::sleep(Duration::from_millis(50)));
+                            }
                         }
                         AlgorithmsReturnType::CGNRReturnType(algorithm_data) => {
                             create_img(
@@ -186,8 +197,17 @@ pub fn start_processing_algorithm_queue(cloned_client_pq: Arc<Mutex<PriorityQueu
 
                             println!(
                                 "Terminou processamento do cliente: {:?}, Priority: {}, execucao:{:?}",
-                                client.client_id, priority, algorithm_data.reconstruction_time
+                                client.request.is_last, priority, algorithm_data.reconstruction_time
                             );
+                            if client.request.is_last {
+                                let mut p: Vec<u8> = serialize("finalizado").unwrap();
+                                p.resize(MSG_SIZE, 0);
+                                let mut tcp_stream: TcpStream =
+                                    client.tcp_stream.clone().try_clone().unwrap();
+                                let _ = tcp_stream
+                                    .write_all(&p)
+                                    .map_err(|_| thread::sleep(Duration::from_millis(50)));
+                            }
                         }
                     },
                     Err(err) => {

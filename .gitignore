@@ -7,3 +7,4 @@
 /Server/client_output/*
 /Server/image_output/*
 /Server/report_output/*
+.vscode

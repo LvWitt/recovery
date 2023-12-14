@@ -8,7 +8,8 @@ pub struct Response{
     pub tipo_sinal:i32,
     pub tipo_matriz : i32,
     pub tamanho:i32,
-    pub sinal:Vec<f64>
+    pub sinal:Vec<f64>,
+    pub is_last: bool
 }
 #[derive(Debug,Clone)]
 pub struct Client{

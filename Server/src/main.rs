@@ -1,7 +1,7 @@
 use priority_queue::PriorityQueue;
+use rust::files_generator::clear_usage_report;
 use rust::models::Client;
 use rust::server::start_server;
-use rust::usage_monitor::start_usage_monitor;
 use std::sync::Arc;
 
 use std::error::Error;
@@ -12,7 +12,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     let clients_priority_queue: Arc<Mutex<PriorityQueue<Client, u32>>> =
         Arc::new(Mutex::new(PriorityQueue::new()));
     pool.install(|| {
-        start_usage_monitor();
+        clear_usage_report();
         start_server(clients_priority_queue);
     });
     return Ok(());
